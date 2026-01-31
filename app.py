@@ -163,12 +163,12 @@ def create_resume_pdf(data, path):
     if logo_path:
         logo_w, logo_h = 1.2*inch, 0.6*inch
         c.drawImage(logo_path, (width - logo_w)/2, y - logo_h, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
-        y -= logo_h + 0.2*inch
+        y -= logo_h + 0.3*inch
     else:
         c.setFont("Helvetica-Bold", 18)
         c.setFillColor(HexColor('#003765'))
         c.drawCentredString(width/2, y, "KRIFY")
-        y -= 0.4*inch
+        y -= 0.5*inch
 
     # 3. Name & Title
     name = data["Full Name"].upper()
@@ -178,7 +178,7 @@ def create_resume_pdf(data, path):
     c.setFont("Helvetica-Bold", 14)
     c.setFillColor(HexColor('#003765'))
     c.drawCentredString(width/2, y, display)
-    y -= 0.25*inch
+    y -= 0.3*inch
 
     # 4. Contact
     parts = [v for k, v in data.items() if k in ["Email", "Phone", "Location"] and v]
@@ -186,18 +186,21 @@ def create_resume_pdf(data, path):
         c.setFont("Helvetica", 9)
         c.setFillColor(gray)
         c.drawCentredString(width/2, y, " | ".join(parts))
-        y -= 0.4*inch
+        y -= 0.5*inch
 
     # Helper for adding wrapped sections
     def add_section(title, content):
         nonlocal y
         if not content: return
         
+        # Space before section
+        y -= 0.15*inch
+
         # Section Title
         c.setFont("Helvetica-Bold", 12)
         c.setFillColor(HexColor('#003765'))
         c.drawString(margin + 0.2*inch, y, title)
-        y -= 0.2*inch
+        y -= 0.25*inch
         
         # Section Content (Simple Wrap)
         c.setFont("Helvetica", 10)
@@ -233,13 +236,13 @@ def create_resume_pdf(data, path):
                     current_line.append(word)
                 else:
                     c.drawString(indent, y, " ".join(current_line))
-                    y -= 0.15*inch
+                    y -= 0.18*inch
                     current_line = [word]
                     if y < margin + 0.5*inch: break
             
             if current_line:
                 c.drawString(indent, y, " ".join(current_line))
-                y -= 0.2*inch
+                y -= 0.25*inch
 
     add_section("PROFILE SUMMARY", data["Profile Summary"])
     add_section("PROFESSIONAL EXPERIENCE", data["Professional Experience"])
