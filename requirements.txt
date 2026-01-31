@@ -1,7 +1,6 @@
 flask
-python-docx
-docx2pdf
 pdfplumber
-pythoncom; sys_platform == 'win32'
 groq
 python-dotenv
+reportlab
+gunicorn

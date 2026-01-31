@@ -1,17 +1,14 @@
 import os
 import tempfile
 import re
-import pythoncom
-import pdfplumber
 from datetime import datetime
 from flask import Flask, request, render_template, send_file, flash, redirect, url_for, after_this_request
-from docx import Document
-from docx.shared import Pt, RGBColor, Inches
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
-from docx2pdf import convert
+import pdfplumber
 from groq import Groq
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import inch
+from reportlab.lib.colors import HexColor, black, gray
 
 # Load environment variables for local development
 try:
@@ -25,22 +22,10 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
 app = Flask(__name__)
-app.secret_key = "hr-resume-converter-2026"
+app.secret_key = os.getenv("SECRET_KEY", "hr-resume-converter-2026")
 TEMP_DIR = tempfile.gettempdir()
 
 # ================= HELPERS =================
-def safe_convert_to_pdf(docx_path, pdf_path):
-    """Convert DOCX to PDF safely on Windows"""
-    try:
-        pythoncom.CoInitialize()
-        convert(docx_path, pdf_path)
-        return pdf_path
-    except Exception as e:
-        print(f"PDF Error: {e}")
-        return docx_path
-    finally:
-        pythoncom.CoUninitialize()
-
 def extract_text(path):
     """Extract text from PDF or DOCX"""
     text = ""
@@ -50,14 +35,27 @@ def extract_text(path):
                 for page in pdf.pages:
                     text += (page.extract_text() or "") + "\n"
         else:
-            doc = Document(path)
-            text = "\n".join([p.text for p in doc.paragraphs])
+            # Fallback for DOCX text extraction without python-docx
+            import zipfile
+            import xml.etree.ElementTree as ET
+            with zipfile.ZipFile(path) as docx:
+                xml_content = docx.read('word/document.xml')
+                tree = ET.fromstring(xml_content)
+                namespace = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+                for paragraph in tree.findall('.//w:p', namespace):
+                    texts = [node.text for node in paragraph.findall('.//w:t', namespace) if node.text]
+                    if texts:
+                        text += "".join(texts) + "\n"
     except Exception as e:
         print(f"Extraction Error: {e}")
     return text.strip()
 
 def get_ai_data(resume_text):
     """Get structured data from Groq AI"""
+    if not GROQ_API_KEY:
+        print("API Key missing!")
+        return None
+
     prompt = f"""Extract professional details from this resume.
 STRICT RULES:
 1. ONLY use details from the text.
@@ -123,106 +121,141 @@ def parse_ai_response(text):
         if "phone:" in lower_line: data["Phone"] = line.split(":", 1)[1].strip(); continue
         if "location:" in lower_line: data["Location"] = line.split(":", 1)[1].strip(); continue
         
-        if "profile summary:" in lower_line: current_key = "Profile Summary"; continue
-        if "professional experience:" in lower_line: current_key = "Professional Experience"; continue
-        if "project experience:" in lower_line: current_key = "Project Experience"; continue
-        if "technical skills:" in lower_line: current_key = "Technical Skills"; continue
-        if "soft skills:" in lower_line: current_key = "Soft Skills"; continue
-        
-        if current_key:
-            data[current_key] += line + "\n"
+        sec_map = {
+            "profile summary:": "Profile Summary",
+            "professional experience:": "Professional Experience",
+            "project experience:": "Project Experience",
+            "technical skills:": "Technical Skills",
+            "soft skills:": "Soft Skills"
+        }
+        for k, v in sec_map.items():
+            if k in lower_line:
+                current_key = v
+                break
+        else:
+            if current_key:
+                data[current_key] += line + "\n"
             
     return {k: v.strip() for k, v in data.items()}
 
-def create_resume(data, path):
-    """Generate Word document from data"""
-    doc = Document()
-    style = doc.styles['Normal']
-    style.font.name = 'Segoe UI'
-    style.font.size = Pt(10)
+def create_resume_pdf(data, path):
+    """Generate PDF directly using ReportLab (Cross-Platform)"""
+    c = canvas.Canvas(path, pagesize=A4)
+    width, height = A4
+    margin = 0.5 * inch
     
-    # Page Setup & Border
-    for section in doc.sections:
-        section.top_margin = section.bottom_margin = section.left_margin = section.right_margin = Inches(0.8)
-        sectPr = section._sectPr
-        pgBorders = OxmlElement('w:pgBorders')
-        pgBorders.set(qn('w:offsetFrom'), 'page')
-        for b in ('top', 'left', 'bottom', 'right'):
-            el = OxmlElement(f'w:{b}')
-            el.set(qn('w:val'), 'single')
-            el.set(qn('w:sz'), '8')
-            el.set(qn('w:space'), '24')
-            el.set(qn('w:color'), '2980B9')
-            pgBorders.append(el)
-        sectPr.append(pgBorders)
-
-    # Logo
-    logo_para = doc.add_paragraph()
-    logo_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    # 1. Page Border (Blue)
+    c.setStrokeColor(HexColor('#2980B9'))
+    c.setLineWidth(1)
+    c.rect(margin, margin, width - 2*margin, height - 2*margin)
+    
+    y = height - margin - 0.4*inch
+    
+    # 2. Logo (Centered)
     static_dir = os.path.join(os.path.dirname(__file__), 'static')
-    logo_found = False
-    for ext in ['png', 'jpg', 'jpeg', 'bmp']:
+    logo_path = None
+    for ext in ['png', 'jpg', 'jpeg']:
         lp = os.path.join(static_dir, f'krify_logo.{ext}')
         if os.path.exists(lp):
-            logo_para.add_run().add_picture(lp, width=Inches(1.0))
-            logo_found = True; break
-    if not logo_found:
-        r = logo_para.add_run("KRIFY")
-        r.font.size = Pt(20); r.font.bold = True; r.font.color.rgb = RGBColor(0, 55, 101)
-    logo_para.space_after = Pt(12)
+            logo_path = lp
+            break
+            
+    if logo_path:
+        logo_w, logo_h = 1.2*inch, 0.6*inch
+        c.drawImage(logo_path, (width - logo_w)/2, y - logo_h, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
+        y -= logo_h + 0.2*inch
+    else:
+        c.setFont("Helvetica-Bold", 18)
+        c.setFillColor(HexColor('#003765'))
+        c.drawCentredString(width/2, y, "KRIFY")
+        y -= 0.4*inch
 
-    # Name and Title
+    # 3. Name & Title
     name = data["Full Name"].upper()
     title = re.sub(r'^(PROFESSIONAL TITLE/DESIGNATION:|TITLE:|DESIGNATION:)\s*', '', data["Professional Title"], flags=re.I).strip().upper()
-    display = f"{name} – {title}" if title else name
+    display = f"{name} - {title}" if title else name
     
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = p.add_run(display)
-    r.font.size = Pt(16); r.font.bold = True; r.font.color.rgb = RGBColor(0, 55, 101)
-    p.space_after = Pt(10)
+    c.setFont("Helvetica-Bold", 14)
+    c.setFillColor(HexColor('#003765'))
+    c.drawCentredString(width/2, y, display)
+    y -= 0.25*inch
 
-    # Contact
+    # 4. Contact
     parts = [v for k, v in data.items() if k in ["Email", "Phone", "Location"] and v]
     if parts:
-        p = doc.add_paragraph(" | ".join(parts))
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.runs[0].font.color.rgb = RGBColor(127, 140, 141)
-        p.space_after = Pt(20)
+        c.setFont("Helvetica", 9)
+        c.setFillColor(gray)
+        c.drawCentredString(width/2, y, " | ".join(parts))
+        y -= 0.4*inch
 
-    # Sections
-    sections = [
-        ("PROFILE SUMMARY", "Profile Summary"),
-        ("PROFESSIONAL EXPERIENCE", "Professional Experience"),
-        ("PROJECT EXPERIENCE", "Project Experience"),
-        ("TECHNICAL SKILLS", "Technical Skills"),
-        ("SOFT SKILLS", "Soft Skills")
-    ]
-    
-    for title, key in sections:
-        if data[key]:
-            tp = doc.add_paragraph()
-            tr = tp.add_run(title)
-            tr.font.size = Pt(13); tr.font.bold = True; tr.font.color.rgb = RGBColor(0, 55, 101)
-            tp.space_before = Pt(14); tp.space_after = Pt(8)
+    # Helper for adding wrapped sections
+    def add_section(title, content):
+        nonlocal y
+        if not content: return
+        
+        # Section Title
+        c.setFont("Helvetica-Bold", 12)
+        c.setFillColor(HexColor('#003765'))
+        c.drawString(margin + 0.2*inch, y, title)
+        y -= 0.2*inch
+        
+        # Section Content (Simple Wrap)
+        c.setFont("Helvetica", 10)
+        c.setFillColor(HexColor('#34495E'))
+        
+        lines = content.split('\n')
+        for line in lines:
+            if y < margin + 1*inch: # New Page
+                c.showPage()
+                # Re-add border on new page
+                c.setStrokeColor(HexColor('#2980B9'))
+                c.rect(margin, margin, width-2*margin, height-2*margin)
+                y = height - margin - 0.5*inch
+                c.setFont("Helvetica", 10)
+                c.setFillColor(HexColor('#34495E'))
+
+            line = line.strip()
+            if not line: continue
             
-            for line in data[key].split("\n"):
-                if not line.strip(): continue
-                cp = doc.add_paragraph(line.strip())
-                cp.runs[0].font.color.rgb = RGBColor(52, 73, 94)
-                if line.strip().startswith(("-", "•")):
-                    cp.style = 'List Bullet'
-                    cp.paragraph_format.left_indent = Inches(0.25)
+            # Simple bullet handling
+            indent = margin + 0.3*inch
+            if line.startswith(('-', '•')):
+                c.drawString(indent, y, "•")
+                indent += 0.15*inch
+                line = line[1:].strip()
+            
+            # Wrap text manually
+            words = line.split()
+            current_line = []
+            for word in words:
+                test_line = " ".join(current_line + [word])
+                if c.stringWidth(test_line, "Helvetica", 10) < (width - margin*2 - 0.6*inch):
+                    current_line.append(word)
+                else:
+                    c.drawString(indent, y, " ".join(current_line))
+                    y -= 0.15*inch
+                    current_line = [word]
+                    if y < margin + 0.5*inch: break
+            
+            if current_line:
+                c.drawString(indent, y, " ".join(current_line))
+                y -= 0.2*inch
 
-    # Footer
-    doc.add_paragraph(); doc.add_paragraph()
-    p = doc.add_paragraph("Private and Confidential Document – Intended for authorized organizations only.")
-    p.runs[0].font.size = Pt(9); p.runs[0].font.bold = True; p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    p = doc.add_paragraph("info@krify.com")
-    p.runs[0].font.size = Pt(9); p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    
-    doc.save(path)
-    return safe_convert_to_pdf(path, path.replace(".docx", ".pdf"))
+    add_section("PROFILE SUMMARY", data["Profile Summary"])
+    add_section("PROFESSIONAL EXPERIENCE", data["Professional Experience"])
+    add_section("PROJECT EXPERIENCE", data["Project Experience"])
+    add_section("TECHNICAL SKILLS", data["Technical Skills"])
+    add_section("SOFT SKILLS", data["Soft Skills"])
+
+    # 5. Footer (Left aligned)
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(black)
+    c.drawString(margin + 0.2*inch, margin + 0.4*inch, "Private and Confidential Document – Intended for authorized organizations only.")
+    c.setFont("Helvetica", 8)
+    c.drawString(margin + 0.2*inch, margin + 0.25*inch, "info@krify.com")
+
+    c.save()
+    return path
 
 @app.route("/")
 def index(): return render_template("hr_converter.html")
@@ -243,15 +276,17 @@ def convert_route():
         if not data: return redirect("/")
         
         safe_name = re.sub(r'[^a-zA-Z0-9]', '_', data["Full Name"])[:30] or "Candidate"
-        out_path = os.path.join(TEMP_DIR, f"Resume_{safe_name}_{ts}.docx")
-        final_path = create_resume(data, out_path)
+        out_path = os.path.join(TEMP_DIR, f"Resume_{safe_name}_{ts}.pdf")
+        final_path = create_resume_pdf(data, out_path)
         
-        cleanup_list.extend([out_path, final_path])
+        cleanup_list.append(final_path)
         
         @after_this_request
         def cleanup(resp):
             for f in cleanup_list:
-                if os.path.exists(f): os.remove(f)
+                if os.path.exists(f): 
+                    try: os.remove(f)
+                    except: pass
             return resp
             
         return send_file(final_path, as_attachment=True, download_name=os.path.basename(final_path))
@@ -260,4 +295,5 @@ def convert_route():
         return redirect("/")
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5003)
+    port = int(os.environ.get("PORT", 5003))
+    app.run(host="0.0.0.0", port=port)
