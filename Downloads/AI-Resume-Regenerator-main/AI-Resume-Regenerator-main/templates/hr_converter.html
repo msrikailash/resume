@@ -4,9 +4,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Resume Generator</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>AI Resume Regenerator | Premium Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --secondary: #a855f7;
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -14,125 +25,217 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        /* Animated background elements */
+        .blob {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%);
+            filter: blur(80px);
+            border-radius: 50%;
+            z-index: -1;
+            animation: move 20s infinite alternate;
+        }
+
+        @keyframes move {
+            from {
+                transform: translate(-10%, -10%) scale(1);
+            }
+
+            to {
+                transform: translate(10%, 10%) scale(1.1);
+            }
         }
 
         .container {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
-            max-width: 600px;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            max-width: 650px;
             width: 100%;
-            padding: 40px;
-            text-align: center;
+            padding: 50px;
+            position: relative;
+            z-index: 1;
         }
 
         h1 {
-            font-size: 28px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            font-size: 36px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #818cf8, #c084fc);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 30px;
+            letter-spacing: -1px;
+        }
+
+        p.subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            font-size: 16px;
         }
 
         .form-group {
-            margin-bottom: 25px;
-            text-align: left;
+            margin-bottom: 30px;
         }
 
         label {
             display: block;
             font-weight: 600;
-            color: #444;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #cbd5e1;
         }
 
-        input[type="file"] {
-            width: 100%;
-            padding: 12px;
-            border: 2px dashed #667eea;
-            border-radius: 10px;
+        .file-upload-wrapper {
+            position: relative;
+            border: 2px dashed var(--glass-border);
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
             cursor: pointer;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .file-upload-wrapper:hover {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .file-upload-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .upload-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .file-name {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 10px;
         }
 
         textarea {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #667eea;
-            border-radius: 10px;
-            font-family: 'Inter', sans-serif;
-            font-size: 14px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 16px;
+            color: white;
+            font-family: inherit;
+            font-size: 15px;
+            line-height: 1.6;
+            min-height: 150px;
             resize: vertical;
-            min-height: 120px;
-            transition: border-color 0.3s;
+            transition: all 0.3s ease;
         }
 
         textarea:focus {
             outline: none;
-            border-color: #764ba2;
-        }
-
-        .file-info {
-            font-size: 12px;
-            color: #777;
-            margin-top: 5px;
-            font-style: italic;
-        }
-
-        .optional-label {
-            font-size: 11px;
-            color: #888;
-            font-weight: 400;
-            margin-left: 5px;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
         }
 
         .submit-btn {
             width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 18px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             color: white;
             border: none;
-            border-radius: 10px;
-            font-size: 16px;
+            border-radius: 16px;
+            font-size: 18px;
             font-weight: 600;
             cursor: pointer;
-            transition: 0.3s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
         }
 
         .submit-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+            filter: brightness(1.1);
         }
 
-        .loading {
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn.loading {
             pointer-events: none;
-            opacity: 0.6;
+            opacity: 0.8;
         }
 
         .flash-messages {
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
 
         .flash-message {
-            padding: 12px;
-            border-radius: 8px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            padding: 15px;
+            border-radius: 12px;
             font-size: 14px;
-            margin-bottom: 10px;
-            background: #fee2e2;
-            color: #991b1b;
+            text-align: center;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
         }
     </style>
 </head>
 
 <body>
+    <div class="blob"></div>
+
     <div class="container">
-        <h1>AI Resume Generator</h1>
+        <h1>Resume Regenerator</h1>
+        <p class="subtitle">Transform any resume into a professional powerhouse using Llama 3 AI</p>
 
         {% with messages = get_flashed_messages() %}
         {% if messages %}
@@ -144,54 +247,90 @@
         {% endif %}
         {% endwith %}
 
-        <form id="converterForm">
+        <form id="converterForm" enctype="multipart/form-data">
             <div class="form-group">
-                <label>Upload Resume (PDF/DOCX)</label>
-                <input type="file" id="resume" name="candidate_resume" accept=".pdf,.docx" required>
-                <div class="file-info">Max size: 10MB</div>
+                <label>Step 1: Upload Candidate Resume</label>
+                <div class="file-upload-wrapper" id="dropZone">
+                    <span class="upload-icon">📄</span>
+                    <p id="fileLabel">Click or drop PDF/DOCX here</p>
+                    <input type="file" id="resume" name="candidate_resume" accept=".pdf,.docx" required
+                        onchange="updateFileName(this)">
+                    <div id="fileName" class="file-name">Max size: 10MB</div>
+                </div>
             </div>
 
             <div class="form-group">
-                <label>Client Job Description <span class="optional-label">(Optional - For Tailored
-                        Resume)</span></label>
+                <label>Step 2: Add Job Description <span
+                        style="font-size: 11px; opacity: 0.6; text-transform: none;">(Optional for
+                        tailoring)</span></label>
                 <textarea id="jobDescription" name="job_description"
-                    placeholder="Paste the job description here to tailor the resume format and content to match the requirements..."></textarea>
-                <div class="file-info">Leave empty for standard format</div>
+                    placeholder="Paste the job description here to perfectly align the resume skills and experience..."></textarea>
             </div>
 
-            <button type="submit" class="submit-btn" id="submitBtn">🚀 Convert & Download</button>
+            <button type="submit" class="submit-btn" id="submitBtn">
+                <span>🚀 Generate Professional PDF</span>
+            </button>
         </form>
     </div>
 
     <script>
+        function updateFileName(input) {
+            const label = document.getElementById('fileLabel');
+            const nameDiv = document.getElementById('fileName');
+            if (input.files.length > 0) {
+                label.innerText = 'File selected:';
+                nameDiv.innerText = input.files[0].name;
+                nameDiv.style.color = '#818cf8';
+            }
+        }
+
         document.getElementById('converterForm').onsubmit = async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
-            btn.innerHTML = 'Converting...';
+            const originalText = btn.innerHTML;
+
+            btn.innerHTML = '<span>⚡ Processing with AI...</span>';
             btn.classList.add('loading');
 
             try {
+                const formData = new FormData(e.target);
                 const resp = await fetch('/convert', {
                     method: 'POST',
-                    body: new FormData(e.target)
+                    body: formData
                 });
+
                 if (resp.ok) {
                     const blob = await resp.blob();
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
+                    const contentDisp = resp.headers.get('Content-Disposition');
+                    let fileName = 'Generated_Resume.pdf';
+
+                    if (contentDisp && contentDisp.includes('filename=')) {
+                        fileName = contentDisp.split('filename=')[1].replace(/"/g, '');
+                    }
+
                     a.href = url;
-                    a.download = resp.headers.get('Content-Disposition')?.match(/filename=(.+)/)?.[1] || 'Resume.pdf';
+                    a.download = fileName;
+                    document.body.appendChild(a);
                     a.click();
-                    setTimeout(() => window.location.reload(), 2000);
+                    document.body.removeChild(a);
+
+                    btn.innerHTML = '<span>✅ Success! Downloaded</span>';
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
                 } else {
-                    alert('Error converting file');
+                    const errorMsg = await resp.text();
+                    alert('Error: ' + (errorMsg || 'Failed to generate resume'));
                     btn.classList.remove('loading');
-                    btn.innerHTML = '🚀 Convert & Download';
+                    btn.innerHTML = originalText;
                 }
             } catch (err) {
-                alert('Connection error');
+                console.error(err);
+                alert('Connection error. Please check if your local server is running.');
                 btn.classList.remove('loading');
-                btn.innerHTML = '🚀 Convert & Download';
+                btn.innerHTML = originalText;
             }
         };
     </script>
