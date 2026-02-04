@@ -1,3 +1,4 @@
+# AI Resume Regenerator - Production Version 2026.02.04
 import os
 import tempfile
 import re
