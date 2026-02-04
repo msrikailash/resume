@@ -1,0 +1,6 @@
+flask
+pdfplumber
+groq
+python-dotenv
+reportlab
+gunicorn
