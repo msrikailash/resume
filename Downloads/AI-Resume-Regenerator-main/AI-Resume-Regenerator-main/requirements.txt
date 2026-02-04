@@ -1,6 +1,7 @@
-flask
-pdfplumber
-groq
-python-dotenv
-reportlab
-gunicorn
+flask==3.0.0
+pdfplumber==0.10.3
+groq==0.4.2
+python-dotenv==1.0.0
+reportlab==4.0.7
+gunicorn==21.2.0
+zipfile36; python_version < "3.6"
